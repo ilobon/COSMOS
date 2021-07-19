@@ -10,6 +10,7 @@ COSMOS is an annotation and filtering strategy that accurately indentifies somat
 * VCF file with indels
 * VCF file with copy number calls
 * BAM files
+* sample_ind file (tab sep file with sample and individual in VCF order)
 
 ## Recommended annotation BED files
 Test files can be found in resources_test
@@ -41,4 +42,13 @@ We recommend calling variants with HaplotypeCaller --ploidy 10
 This allows for the detection of somatic mutations without a paired normal, but retrieves mostly noise.
 
 
-./annotateHCP10somatic.sh sample.vcf.gz sample.bedanno.vcf "1000Gstrict=resources_fragment/hs37d5.1000GNonPassStrictMask.tagged.fragment.bed.gz;mappability=resources_fragment/hs37d5.100mersMappability.tagged.fragment.bed.gz;segdups=resources_fragment/hs37d5.segdups.tagged.fragment.bed.gz;dbsnp=resources_fragment/hs37d5.dbsnpCommon.tagged.fragment.bed.gz;homopolymer=resources_fragment/hs37d5.HomopolminScore5.fragment.bed.gz;onTarget=resources_fragment/exomeSureSelect.hs37d5.fragment.bed.gz" "data/bams/DV10B.fragment.bam;data/bams/DV10C.fragment.bam;data/bams/DV10E.fragment.bam;data/bams/DV10N.fragment.bam;data/bams/DV10S.fragment.bam;data/bams/DV1B.fragment.bam;data/bams/DV1C.fragment.bam;data/bams/DV1E.fragment.bam;data/bams/DV1N.fragment.bam;data/bams/DV1S.fragment.bam;data/bams/DV2B.fragment.bam;data/bams/DV2C.fragment.bam;data/bams/DV2E.fragment.bam;data/bams/DV2N.fragment.bam;data/bams/DV2S.fragment.bam;data/bams/DV3B.fragment.bam;data/bams/DV3C.fragment.bam;data/bams/DV3E.fragment.bam;data/bams/DV3N.fragment.bam;data/bams/DV3S.fragment.bam;data/bams/DV4B.fragment.bam;data/bams/DV4C.fragment.bam;data/bams/DV4E.fragment.bam;data/bams/DV4N.fragment.bam;data/bams/DV4S.fragment.bam;data/bams/DV5B.fragment.bam;data/bams/DV5C.fragment.bam;data/bams/DV5E.fragment.bam;data/bams/DV5N.fragment.bam;data/bams/DV5S.fragment.bam;data/bams/DV6B.fragment.bam;data/bams/DV6C.fragment.bam;data/bams/DV6E.fragment.bam;data/bams/DV6N.fragment.bam;data/bams/DV6S.fragment.bam;data/bams/DV7B.fragment.bam;data/bams/DV7C.fragment.bam;data/bams/DV7E.fragment.bam;data/bams/DV7N.fragment.bam;data/bams/DV7S.fragment.bam;data/bams/DV8B.fragment.bam;data/bams/DV8C.fragment.bam;data/bams/DV8E.fragment.bam;data/bams/DV8N.fragment.bam;data/bams/DV8S.fragment.bam;data/bams/DV9B.fragment.bam;data/bams/DV9C.fragment.bam;data/bams/DV9E.fragment.bam;data/bams/DV9N.fragment.bam;data/bams/DV9S.fragment.bam" data/XHMM.vcf.gz
+
+#### The first step is to annotate with the BED file info and read features
+`./annotateHCP10somatic.sh sample.vcf.gz sample.bedanno.vcf "anno1=anno1.bed.gz;anno2=anno2.bed.gz" "bam1.bam;bam2.bam;bam3.bam"`
+
+#### Filtering by annotated flags and number of individuals
+`python3.6 ./excludeRequireTags_otherInds.py --exclude 1000G,Mappability,SegDups,indel,Homopolymer,dbsnp --require onTarget --samplesInds sample_ind.txt --nOtherInds 1 -a VCF --includesSelf YES --vcfPath vcfPath/ --overwriteSamples YES --out sample.bedanno.flags.ninds.vcf.gz`
+
+#### Filtering by read features
+`python3.6 ./COSMOS.py -i sample.bedanno.flags.ninds.vcf.gz -o sample.bedanno.flags.ninds.cosmos.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 3 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -mq 0.05 -mm 0.05`
+
