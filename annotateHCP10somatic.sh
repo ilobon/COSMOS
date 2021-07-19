@@ -1,7 +1,6 @@
 #Script to add fields relevant for somatic calling filtering 
 #It adds fields to HaplotypeCaller --ploidy 10 vcfs
 
-module unload gcc;module load gcc/6.3.0; module load BCFTOOLS/1.6
 
 vcfIn=$1 
 vcfOut=$2
@@ -10,14 +9,11 @@ bams=$4
 xhmm=$5
 pathOut=$(dirname $vcfOut)
 name=$(echo $vcfOut | sed "s/annotated.vcf/annotated/g")
-qu=$pathOut/qu
-out=$pathOut/out
-mkdir -p $qu $out
+
 
 echo $vcfOut $name
 
-#: <<'END'
-#0. Previously: Run XHMM, get homopolymers bed
+
 
 #1. Remove multiallelic positions and indels + indels to bed
 #Remove multiallelic positions and indels from VCF
@@ -38,4 +34,4 @@ bgzip $vcfOut
 rm ${name}.indels.bed.gz* ${name}.snps.beds.vcf.gz 
 
 
-#END
+

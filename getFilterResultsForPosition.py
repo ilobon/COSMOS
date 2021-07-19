@@ -2,7 +2,7 @@ import sys
 import gzip
 import io
 import argparse
-import SOMEXfunctions
+import COSMOSfunctions
 
 ## Parse arguments ##
 
@@ -48,14 +48,14 @@ args=parser.parse_args()
 
 ##Main
 
-samples=SOMEXfunctions.getSamplesVCF(args.VCF)
-sampleToInd=SOMEXfunctions.getSampleInd(args.SAMPLEIND)
+samples=COSMOSfunctions.getSamplesVCF(args.VCF)
+sampleToInd=COSMOSfunctions.getSampleInd(args.SAMPLEIND)
 
 i=0
 for line in io.TextIOWrapper(gzip.open(args.VCF,'rb')):
 	if not line.startswith("#"):
 		while i==0:
-			fieldNumbers=SOMEXfunctions.getFieldNumbers(line)
+			fieldNumbers=COSMOSfunctions.getFieldNumbers(line)
 			i+=1
 
 for line in io.TextIOWrapper(gzip.open(args.VCF,"rb")):
@@ -63,11 +63,11 @@ for line in io.TextIOWrapper(gzip.open(args.VCF,"rb")):
 		myline=line
 
 if args.MODE=="failed":
-	result=SOMEXfunctions.getFailed(args.COMBINED,args.NPERIND,myline,sampleToInd,fieldNumbers,samples,args.MIN_AD,args.MIN_AD_SS,args.MAX_VAF,args.MIN_DP,args.MAX_DP,args.S_RATIO,args.P_RATIO,args.SER1,args.SER2,args.SPOIS,args.SFET,args.BINOM,args.MAX_NRL,args.MAX_NHAP,args.CNV,args.PIR,args.MAX_VAFQ20,args.MAX_CLIP,args.MWBQ,args.MWMQ,args.MWMM,args.PON)
+	result=COSMOSfunctions.getFailed(args.COMBINED,args.NPERIND,myline,sampleToInd,fieldNumbers,samples,args.MIN_AD,args.MIN_AD_SS,args.MAX_VAF,args.MIN_DP,args.MAX_DP,args.S_RATIO,args.P_RATIO,args.SER1,args.SER2,args.SPOIS,args.SFET,args.BINOM,args.MAX_NRL,args.MAX_NHAP,args.CNV,args.PIR,args.MAX_VAFQ20,args.MAX_CLIP,args.MWBQ,args.MWMQ,args.MWMM,args.PON)
 	for x in result:
 		print(x)
 elif args.MODE=="all":
-	result=SOMEXfunctions.getFiltResultsAllSamples(args.COMBINED,args.NPERIND,myline,sampleToInd,fieldNumbers,samples,args.MIN_AD,args.MIN_AD_SS,args.MAX_VAF,args.MIN_DP,args.MAX_DP,args.S_RATIO,args.P_RATIO,args.SER1,args.SER2,args.SPOIS,args.SFET,args.BINOM,args.MAX_NRL,args.MAX_NHAP,args.CNV,args.PIR,args.MAX_VAFQ20,args.MAX_CLIP,args.MWBQ,args.MWMQ,args.MWMM,args.PON)
+	result=COSMOSfunctions.getFiltResultsAllSamples(args.COMBINED,args.NPERIND,myline,sampleToInd,fieldNumbers,samples,args.MIN_AD,args.MIN_AD_SS,args.MAX_VAF,args.MIN_DP,args.MAX_DP,args.S_RATIO,args.P_RATIO,args.SER1,args.SER2,args.SPOIS,args.SFET,args.BINOM,args.MAX_NRL,args.MAX_NHAP,args.CNV,args.PIR,args.MAX_VAFQ20,args.MAX_CLIP,args.MWBQ,args.MWMQ,args.MWMM,args.PON)
 	for x in result:
 		print(x)
 

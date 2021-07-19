@@ -4,10 +4,6 @@ import gzip
 import io
 import scipy.stats
 
-#vcf="/home/devel/irenel/scratch/parkinson/haplotypeCallerP10annotated/All_HP_P10.chr22.annotated.snps.beds.vcf.gz"
-#bam="/home/devel/irenel/scratch/parkinson/bwaMapping/exomeBams/DV10B.RG.rmDup.rc.ir.sec.exome.bam"
-#outf="/home/devel/irenel/scratch/parkinson/haplotypeCallerP10annotated/All_HP_P10.chr22.annotated.snps.beds.annotations.vcf.gz"
-#vcfxhmm="/home/devel/irenel/scratch/parkinson/XHMM/DV.HCorder.vcf.gz"
 
 vcf=sys.argv[1]
 bams=sys.argv[2].split(";")
@@ -147,11 +143,16 @@ for line in io.TextIOWrapper(gzip.open(vcf,"rb")):
                                     out.write('##FORMAT=<ID=SPOIS,Number=.,Type=Float,Description="Poisson test for read counts for each strand">'+'\n')
                                     out.write('##FORMAT=<ID=SFET,Number=.,Type=Float,Description="Fisher exact test p-value for Ref+ and Ref- vs Alt+ and Alt- read counts">'+'\n')
                                     out.write('##FORMAT=<ID=BINOM,Number=.,Type=Float,Description="Binomial p-value for Ref and total read counts">'+'\n')
-                                    out.write('##FORMAT=<ID=PIR,Number=.,Type=Integer,Description="Position in read per allele, where 0 means no coverage, 1,2 or 3 >0.66 of the reads carrying the allele in that third of the read and 4 means no bias">'+'\n')
+                                    out.write('##FORMAT=<ID=PIR90,Number=.,Type=Integer,Description="Position in read per allele, where 0 means no coverage, 1,2 or 3 >0.9 of the reads carrying the allele in that third of the read and 4 means no bias">'+'\n')
                                     out.write('##FORMAT=<ID=MC,Number=.,Type=Integer,Description="Maximum coverage in +- read length region">'+'\n')
                                     out.write('##FORMAT=<ID=nRL,Number=.,Type=Integer,Description="Number of variants called in the individual +- read length around, including the variant">'+'\n')
                                     out.write('##FORMAT=<ID=PHA,Number=.,Type=String,Description="Number of haplotypes this variant has in fase with, chr, position">'+'\n')
                                     out.write('##FORMAT=<ID=SQ,Number=2,Type=Float,Description="XHMM phred-scaled Qualities of Some CNV event of allele types: DEL,DUP">'+"\n"+'##FORMAT=<ID=RDX,Number=1,Type=Float,Description="XHMM mean Read Depth over region">'+"\n")
+                                    out.write('##FORMAT=<ID=Q20VAF,Number=.,Type=Float,Description="Variant allele frequency of reads with BQ>20 with pysam">'+'\n')
+                                    out.write('##FORMAT=<ID=CLIP,Number=.,Type=Float,Description="Ratio of soft clipped reads per allele (ref,alt)">'+'\n')
+                                    out.write('##FORMAT=<ID=MWBQ,Number=.,Type=Float,Description="Mann-Withney U test p-value for base quality scores (ref greater than alt)">'+'\n')
+                                    out.write('##FORMAT=<ID=MWMQ,Number=.,Type=Float,Description="Mann-Withney U test p-value for mapping quality scores (ref greater than alt)">'+'\n')
+                                    out.write('##FORMAT=<ID=MWMM,Number=.,Type=Float,Description="Mann-Withney U test p-value for number of mismatches per read (ref less than alt)">'+'\n')
                                     #We record we've done it so that it isn't written for every line after ##FORMAT that doesn't start with ##FORMAT 
                                     done+=1
                                     out.write(line)
@@ -176,6 +177,8 @@ for col in range(9,len(bams)+9):
         #Get lines for that column
         for i in getLines(col):
                 lines[col].append(i)
+        if lines[col]==[]:
+                break
         #Make groups with the lines
         for i in makeGroups(lines[col]):
                 groups[col].append(i)
@@ -217,8 +220,9 @@ for line in io.TextIOWrapper(gzip.open(vcf,"rb")):
 		p=int(line.split("\t")[1])-1 #Python is 0 based
 		lbroken=line.split("\t")
 		alleles=[lbroken[3],lbroken[4]]
-		lbroken[8]=lbroken[8]+":RAC:SER1:SER2:SPOIS:SFET:BINOM:PIR:MC:nRL:PHA:SQ:RDX" #Add new fields names
-		col=9	
+		lbroken[8]=lbroken[8]+":RAC:SER1:SER2:SPOIS:SFET:BINOM:PIR90:MC:nRL:PHA:SQ:RDX:Q20VAF:CLIP:MWBQ:MWMQ:MWMM" #Add new fields names
+		col=9
+		ns=[lbroken[3],lbroken[4]]	
 		for bam in bams:
 			print(chr,p,bam,col)
 			bamfile=pysam.AlignmentFile(bam,"rb") #Read bam with pysam
@@ -238,6 +242,7 @@ for line in io.TextIOWrapper(gzip.open(vcf,"rb")):
 			for i in RACounts:
 				for x in i.split(","):
 					RAC.append(int(x))
+			print("RAC annotated",p,col)
 			#Tests
 			if "0" not in lbroken[col].split(":")[0] and "1" not in lbroken[col].split(":")[0]:
 				SER1=".";SER2=".";SPOIS=".";SFET=".";BINOM="."
@@ -273,6 +278,7 @@ for line in io.TextIOWrapper(gzip.open(vcf,"rb")):
 					SACm=SAC[1]+SAC[3]
 					SPOIS=scipy.stats.poisson.cdf(min([SACp,SACm]),sum(SAC)/2)
 					SFET=scipy.stats.fisher_exact([[SAC[n*2],SAC[n*2+1]],[SAC[n2*2],SAC[n2*2+1]]])[1]
+			print("Tests annotated",p,col)
 			#PIR
 			cov1=dict(zip(nucleotides,[str(x) for y in bamfile.count_coverage(chr,p,p+1,quality_threshold=10,read_callback=n1t) for x in y]))
 			cov2=dict(zip(nucleotides,[str(x) for y in bamfile.count_coverage(chr,p,p+1,quality_threshold=10,read_callback=n2t) for x in y]))
@@ -282,46 +288,86 @@ for line in io.TextIOWrapper(gzip.open(vcf,"rb")):
 				tot=int(cov1[allele])+int(cov2[allele])+int(cov3[allele])
 				if tot==0:
 					pir=0
-				elif int(cov1[allele])/tot>0.66:
+				elif int(cov1[allele])/tot>0.9:
 					pir=1
-				elif int(cov2[allele])/tot>0.66:
+				elif int(cov2[allele])/tot>0.9:
 					pir=2
-				elif int(cov3[allele])/tot>0.66:
+				elif int(cov3[allele])/tot>0.9:
 					pir=3
 				else:
 					pir=4
 				PIR.append(pir)
+			print("PIR annotated",p,col)
 			#Max cov
 			covs=[]
 			for pileupcolumn in bamfile.pileup(chr,p-readlength,p+readlength):
 					if pileupcolumn.pos>=p-readlength and pileupcolumn.pos<=p+readlength:
 						covs.append(pileupcolumn.n)
 			MC=0 if len(covs)==0 else max(covs)
+			print("MC annotated",p,col)
 			#nRL and PHA
-			inlistn=[i for i, e in enumerate(resultn[col]) if e[0]==chr and e[1]==(p+1)]
-			if len(inlistn)==1:
-				annotationn=resultn[col][inlistn[0]][2]
+			if col in resultn:
+				inlistn=[i for i, e in enumerate(resultn[col]) if e[0]==chr and e[1]==(p+1)]
+				if len(inlistn)==1:
+					annotationn=resultn[col][inlistn[0]][2]
+				else:
+					annotationn=0
 			else:
 				annotationn=0
-			inlisth=[i for i, e in enumerate(resulth[col]) if e[0]==chr and e[1]==(p+1)]
-			if len(inlisth)==1:
-				annotationh=",".join(str(x) for x in [resulth[col][inlisth[0]][3],resulth[col][inlisth[0]][0],resulth[col][inlisth[0]][2]])	
+			if col in resulth:
+				inlisth=[i for i, e in enumerate(resulth[col]) if e[0]==chr and e[1]==(p+1)]
+				if len(inlisth)==1:
+					annotationh=",".join(str(x) for x in [resulth[col][inlisth[0]][3],resulth[col][inlisth[0]][0],resulth[col][inlisth[0]][2]])	
+				else:
+					annotationh=0
 			else:
 				annotationh=0
+			print("nRL and PHA annotated",p,col)
 			#XHMM fields
 			inresult=[i for i, e in enumerate(resultxhmm) if e[0]==chr and int(e[1])==(p+1)]
 			if len(inresult)==1:
 				XHMM=resultxhmm[inresult[0]][col-7]
 			else:
 				XHMM="."+":"+"."
+			print("XHMM annotated",p,col)
+			#Q20VAF,CLIP,MWBQ,MWMQ,MWMM
+			covq20=dict(zip(nucleotides,[x for y in bamfile.count_coverage(chr,p,p+1,quality_threshold=20) for x in y]))
+			q20VAF=0 if covq20[ns[1]]==0 and covq20[ns[0]]==0 else covq20[ns[1]]/(covq20[ns[0]]+covq20[ns[1]])
+			refN=0; refclip=0; altN=0; altclip=0; mm=0
+			rBQ=[]; aBQ=[]; rMQ=[]; aMQ=[]; mmR=[]; mmA=[]
+			for read in bamfile.fetch(chr,p,p+1):
+				for read_pos, ref_pos, base in read.get_aligned_pairs(with_seq=True):
+					if base is not None and base in "acgt":
+						mm+=1
+				if p-read.pos<read.query_alignment_end-read.query_alignment_start and read.seq[p-read.pos]==ns[0]:
+					refN+=1
+					if "S" in read.cigarstring:
+						refclip+=1
+					rBQ.append(read.query_alignment_qualities[p-read.pos])
+					rMQ.append(read.mapping_quality)
+					mmR.append(mm)
+				elif p-read.pos<read.query_alignment_end-read.query_alignment_start and read.seq[p-read.pos]==ns[1]:
+					altN+=1
+					if "S" in read.cigarstring:
+						altclip+=1
+					aBQ.append(read.query_alignment_qualities[p-read.pos])
+					aMQ.append(read.mapping_quality)
+					mmA.append(mm-1)
+				mm=0
+			RCLIP="." if refN==0 else str("%.2f" % (refclip/refN))
+			ACLIP="." if altN==0 else str("%.2f" % (altclip/altN))
+			MWBQ="." if (len(set(rBQ+aBQ))==1 or (len(rBQ)==0 or len(aBQ)==0)) else str("%.4f" % scipy.stats.mannwhitneyu(rBQ,aBQ,alternative='greater')[1])
+			MWMQ="." if (len(set(rMQ+aMQ))==1 or (len(rMQ)==0 or len(aMQ)==0)) else str("%.4f" % scipy.stats.mannwhitneyu(rMQ,aMQ,alternative='greater')[1])
+			MWMM="." if (len(set(mmR+mmA))==1 or (len(mmR)==0 or len(mmA)==0)) else str("%.4f" % scipy.stats.mannwhitneyu(mmR,mmA,alternative='less')[1])
+			print("Q20VAF,CLIP,MWBQ,MWMQ,MWMM annotated",p,col)
 			#Add all to line	
 			if "0" not in lbroken[col].split(":")[0] and "1" not in lbroken[col].split(":")[0]:
-				lbroken[col]=":".join(str(x) for x in [lbroken[col].replace("\n",""),",".join(str(x) for x in RAC),SER1,SER2,SPOIS,SFET,BINOM,",".join(str(x) for x in PIR),MC,annotationn,annotationh,XHMM])
+				lbroken[col]=":".join(str(x) for x in [lbroken[col].replace("\n",""),",".join(str(x) for x in RAC),SER1,SER2,SPOIS,SFET,BINOM,",".join(str(x) for x in PIR),MC,annotationn,annotationh,XHMM,str("%.3f" % q20VAF),",".join([RCLIP,ACLIP]),":".join([MWBQ,MWMQ,MWMM])])
 			else:
 				if SAC=="." or sum(SAC)==0:
-					lbroken[col]=":".join(str(x) for x in [lbroken[col].replace("\n",""),",".join(str(x) for x in RAC),float(("%0.4f"%SER1)),float(("%0.4f"%SER2)),SPOIS,SFET,float(("%0.4f"%BINOM)),",".join(str(x) for x in PIR),MC,annotationn,annotationh,XHMM])
+					lbroken[col]=":".join(str(x) for x in [lbroken[col].replace("\n",""),",".join(str(x) for x in RAC),float(("%0.4f"%SER1)),float(("%0.4f"%SER2)),SPOIS,SFET,float(("%0.4f"%BINOM)),",".join(str(x) for x in PIR),MC,annotationn,annotationh,XHMM,str("%.3f" % q20VAF),",".join([RCLIP,ACLIP]),":".join([MWBQ,MWMQ,MWMM])])
 				else:
-					lbroken[col]=":".join(str(x) for x in [lbroken[col].replace("\n",""),",".join(str(x) for x in RAC),float(("%0.4f"%SER1)),float(("%0.4f"%SER2)),float(("%0.4f"%SPOIS)),float(("%0.4f"%SFET)),float(("%0.4f"%BINOM)),",".join(str(x) for x in PIR),MC,annotationn,annotationh,XHMM])
+					lbroken[col]=":".join(str(x) for x in [lbroken[col].replace("\n",""),",".join(str(x) for x in RAC),float(("%0.4f"%SER1)),float(("%0.4f"%SER2)),float(("%0.4f"%SPOIS)),float(("%0.4f"%SFET)),float(("%0.4f"%BINOM)),",".join(str(x) for x in PIR),MC,annotationn,annotationh,XHMM,str("%.3f" % q20VAF),",".join([RCLIP,ACLIP]),":".join([MWBQ,MWMQ,MWMM])])
 			print(col,"annotated")
 			col+=1
 		lbroken[col-1]=lbroken[col-1]+"\n" #Add new line to last field
