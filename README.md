@@ -12,7 +12,7 @@ COSMOS is an annotation and filtering strategy that accurately indentifies somat
 * BAM files
 
 ## Recommended annotation BED files
-(test files can be found in resources_test)
+Test files can be found in resources_test
 
 * 1000G strict mask 
 * Mappability <1 for read length
@@ -21,6 +21,24 @@ COSMOS is an annotation and filtering strategy that accurately indentifies somat
 * Segmental duplications track
 * Capture BED (if not WGS)
 
+## Dependencies
+
+* HTSlib
+* BCFtools
+* Python >=3.6
+#### Python modules
+* Pysam
+* natsort
+* scipy
+
+
+## Usage
+
+COSMOS has been designed to detect somatic mutations in the absence of a "normal/germline" reference.
+Sensitivity and specificity improve when multiple samples from the same individual are used.
+
+We recommend calling variants with HaplotypeCaller --ploidy 10 
+This allows for the detection of somatic mutations without a paired normal, but retrieves mostly noise.
 
 
 
