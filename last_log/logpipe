@@ -1,0 +1,202 @@
+##Get candidates per tissue with all other tissues info
+for z in $(seq 1 1 19) $(seq 25 1 59);do zcat All_HP_P10.chr*.annotated.vcf.gz | grep -v "^#" | grep -v "1000G\|mappability\|segdups\|indel\|homopolymer" | grep onTarget | awk '{x=0;for(i=10;i<=NF;i++){split($i,a,":");if(a[1]~"0" && a[1]~"1")x++}if(x<7)print $0}' | awk -v z=$z '{split($z,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1" && b[2]>=5 && a[17]=="." && a[3]>20 && a[3]<100 && a[12]<0.05 && a[15]<4 && a[11]>0.05 && rrr>0.25 && rrr<0.75 && arr>0.25 && arr<0.75 && sr>0.5 && sr<2)print $0}' | awk -v z=$z '{OFS="\t";s=int(z/5)*5;e=s+4;nBIN=0;nH=0;for(i=s;i<=e;i++){split($i,a,":");if(a[12]<0.05)nBIN++;if(a[1]!~"0")nH++}if(nBIN==5 && nH==0)print z,$0}';done > candidatesPerTissueAllInfo.vcf
+
+#cols and sample names
+paste <(for i in $(seq 1 1 59);do echo $i;done) <(zcat All_HP_P10.chr12.annotated.vcf.gz | grep "^#" | grep -v "^##" | tr '\t' '\n')
+
+#Join
+zcat All_HP_P10.chr1.annotated.vcf.gz | grep "^#" > All_HP_P10.all.annotated.vcf
+for i in $(ls All_HP_P10.chr*.annotated.vcf.gz | sort -V);do zcat $i | grep -v "^#" >> All_HP_P10.all.annotated.vcf ;done
+
+
+#Solve multiple tissues issue. Maybe Q20 q20 to remove those remaining
+#
+#Filter by 4 tissues passing each filter
+grep -v "^#" All_HP_P10.all.annotated.vcf | grep -v "1000G\|mappability\|segdups\|indel\|homopolymer" | grep onTarget | awk '{x=0;for(i=10;i<=NF;i++){split($i,a,":");if(a[1]~"0" && a[1]~"1")x++}if(x<9)print $0}' > All_HP_P10.all.annotated.firstFilt
+
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.firstFilt;done > candidates4tissuesSB2.txt
+
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[13],q,",");split(a[16],k,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4 && nPIR>=4 && nHAP>=4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.firstFilt;done > candidates4tissuesSB2.hapPIR.txt
+
+
+#Add Varscan noise profile
+module unload gcc; module load gcc/6.3.0 BCFTOOLS/1.6
+for i in {1..22}; do bcftools annotate -a ../varscan/singletons/allelesPerTissueAll.${i}.bed.gz -c CHROM,FROM,TO,samples -h <(echo '##INFO=<ID=samples,Number=1,Type=String,Description="Allele support in other samples">') All_HP_P10.chr${i}.annotated.PIR90.vcf.gz | bgzip > All_HP_P10.chr${i}.annotated.PIR90.otherSamples.vcf.gz;done
+
+#Add the other fields 
+../scripts/addQ20VAF_clipping_QMWUT_HCP10.sh
+#Q20VAF_clipping_QMWUT_HCP10.py
+
+
+#New filtering, old one with no varscan noise profile had to be checked manually
+
+#First filter by non callable and other samples
+for c in $(seq 1 1 22);do python3.6 ./filterCandidates.py All_HP_P10.chr${c}.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.vcf.gz All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf;done
+
+#Requiring at least 4 samples passing each filter
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[19],q,",");split(a[16],k,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4 && nPIR>=4 && nHAP>=4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf ;done > candidates4tissuesSB2.PIR90.vcf
+
+#From this I get 4 positions, the 3 I always get from multiple tissue calling + 1:
+#7:30639529 in DV4 has too many mismatches in the alt reads, looks suspicious - Maybe add that to pipe?? Try validation nonetheless?
+
+#Single tissue HaplotypeCaller
+for z in $(seq 1 1 19) $(seq 25 1 59);do grep -v "1000G\|mappability\|segdups\|indel\|homopolymer" All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf | grep onTarget | awk '{x=0;for(i=10;i<=NF;i++){split($i,a,":");if(a[1]~"0" && a[1]~"1")x++}if(x<7)print $0}' | awk -v z=$z '{split($z,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1" && b[2]>=5 && a[17]=="." && a[3]>20 && a[3]<100 && a[12]<0.05 && a[15]<4 && a[11]>0.05 && rrr>0.25 && rrr<0.75 && arr>0.25 && arr<0.75 && sr>0.5 && sr<2)print $0}' | awk -v z=$z '{OFS="\t";s=int(z/5)*5;e=s+4;nBIN=0;nH=0;for(i=s;i<=e;i++){split($i,a,":");if(a[12]<0.05)nBIN++;if(a[1]!~"0")nH++}if(nBIN==5 && nH==0)print z,$0}';done > candidatesPerTissueAllInfo.NewFirstfilter.vcf
+
+
+#Add everything
+for z in $(seq 1 1 19) $(seq 25 1 59);do grep -v "1000G\|mappability\|segdups\|indel\|homopolymer" All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf | grep onTarget | awk -v z=$z '{split($z,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};split(a[21],s,",");split(a[22],w,",");if(a[1]~"0" && a[1]~"1" && b[2]>=5 && a[17]=="." && a[3]>20 && a[3]<100 && a[12]<0.05 && a[15]<4 && a[11]>0.05 && rrr>0.25 && rrr<0.75 && arr>0.25 && arr<0.75 && sr>0.5 && sr<2 && a[19]=="4,4" && a[16]<4 && s[1]-s[2]>-0.9 && s[1]-s[2]<0.9 && (w[1]=="." || w[1]>0.001) && (w[2]=="." || w[2]>0.05) && b[2]/a[3]<0.5 && a[20]<0.4)print $0}' | awk -v z=$z '{OFS="\t";s=int(z/5)*5;e=s+4;nBIN=0;nH=0;for(i=s;i<=e;i++){split($i,a,":");if(a[12]<0.05)nBIN++;if(a[1]!~"0")nH++}if(nBIN==5 && nH==0)print z,$0}';done > candidatesPerTissueAllInfo.NewFilters.vcf
+
+#No MW
+for z in $(seq 1 1 19) $(seq 25 1 59);do grep -v "1000G\|mappability\|segdups\|indel\|homopolymer" All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf | grep onTarget | awk -v z=$z '{split($z,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};split(a[21],s,",");split(a[22],w,",");if(a[1]~"0" && a[1]~"1" && b[2]>=5 && a[17]=="." && a[3]>20 && a[3]<100 && a[12]<0.05 && a[15]<4 && a[11]>0.05 && rrr>0.25 && rrr<0.75 && arr>0.25 && arr<0.75 && sr>0.5 && sr<2 && a[19]=="4,4" && a[16]<4 && s[1]-s[2]>-0.9 && s[1]-s[2]<0.9 && b[2]/a[3]<0.5 && a[20]<0.4)print $0}' | awk -v z=$z '{OFS="\t";s=int(z/5)*5;e=s+4;nBIN=0;nH=0;for(i=s;i<=e;i++){split($i,a,":");if(a[12]<0.05)nBIN++;if(a[1]!~"0")nH++}if(nBIN==5 && nH==0)print z,$0}';done > candidatesPerTissueAllInfo.NewFiltersNoMW.vcf
+
+
+
+
+
+#Look at filters in a specific line - per tissue
+for z in $(seq 1 1 19) $(seq 25 1 59);do grep 87367003 All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf | awk -v z=$z '{split($z,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};split(a[21],s,",");split(a[22],w,",");if(a[1]~"0" && a[1]~"1" && b[2]>=5 && a[17]=="." && a[3]>20 && a[3]<100 && a[12]<0.05 && a[15]<4 && a[11]>0.05 && rrr>0.25 && rrr<0.75 && arr>0.25 && arr<0.75 && sr>0.5 && sr<2 && a[19]=="4,4" && a[16]<4 && s[1]-s[2]>-0.9 && s[1]-s[2]<0.9 && (w[1]=="." || w[1]>0.001) && (w[2]=="." || w[2]>0.05) && b[2]/a[3]<0.5 && a[20]<0.4)print $0}' | awk -v z=$z '{OFS="\t";s=int(z/5)*5;e=s+4;nBIN=0;nH=0;for(i=s;i<=e;i++){split($i,a,":");if(a[12]<0.05)nBIN++;if(a[1]!~"0")nH++}if(nBIN==5 && nH==0)print $0}' | awk -v z=$z '{split($z,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};split(a[21],s,",");split(a[22],w,","); print("Has0="a[1]~"0","Has1="a[1]~"1","AD5="b[2]>=5,"SQno="a[17]==".","DPsr="a[3]>20,"DPbr="a[3]<100,"BINOM="a[12]<0.05,"nRL="a[15]<4,"SFET="a[11]>0.05,"RRRb="rrr>0.25,"RRRs="rrr<0.75,"AARb="arr>0.25,"AARs"arr<0.75,"SRb="sr>0.5,"SRs="sr<2,"PIR="a[19]=="4,4","PHA="a[16]<4,"clipB="s[1]-s[2]>-0.9,"clipS="s[1]-s[2]<0.9,"MWBQ="(w[1]=="." || w[1]>0.001),"MWMQ="(w[2]=="." || w[2]>0.05),"VAF="b[2]/a[3]<0.5,"Q20VAF="a[20]<0.4)};done
+
+
+
+
+
+
+
+
+#Look at filters in a specific line - for 4 tissues filter
+for s in 10 15 $(seq 25 5 59);do grep 30639529 All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf | awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[19],q,",");split(a[16],k,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++};print "nBIN="nBIN,"nV="nV,"nAD="nAD,"nXH="nXH,"nDP="nDP,"nFET="nFET,"nST="nST,"n200="n200,"nPIR="nPIR,"nHAP="nHAP}';done
+
+
+
+
+
+#Where are the others??
+#From thesis table in filtered N Y Y N N, so check why
+
+#Ex 6:28097592 in DV1C,DV2C and in DV3B. In IGV it does suggest random error. Nonetheless interesting to see 1000G results and then validate
+
+#And still missing clipping etc
+#Something else must be too stringent #Basically I'm using the joint calling approach! Try with single tissue
+
+
+#4 tissues with VAFQ20 and clipping
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;nVQ20=0;nCLIP=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[19],q,",");split(a[16],k,",");split(a[21],z,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++;if(a[28]<0.4)nVQ20++;if(z[1]-z[2]>-0.9 && z[1]-z[2]<0.9)nCLIP++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4 && nPIR>=4 && nHAP>=4 && nVQ20>=4 && nCLIP>=4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf ;done > candidates4tissuesSB2.PIR90.newFilters.vcf
+
+#+MW less than 4 tissues MWBQ sign
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;nVQ20=0;nCLIP=0;MWBQ=0;MWMQ=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[19],q,",");split(a[16],k,",");split(a[21],z,",");split(a[22],w,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++;if(a[28]<0.4)nVQ20++;if(z[1]-z[2]>-0.9 && z[1]-z[2]<0.9)nCLIP++;if(w[1]!="." && w[1]<0.05)MWBQ++;if(w[2]!="." && w[2]<0.05)MWMQ++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4 && nPIR>=4 && nHAP>=4 && nVQ20>=4 && nCLIP>=4 && MWBQ<4 && MWMQ<4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf ;done > candidates4tissuesSB2.PIR90.newFiltersMW.vcf
+
+#More stringent
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;nVQ20=0;nCLIP=0;MWBQ=0;MWMQ=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[19],q,",");split(a[16],k,",");split(a[21],z,",");split(a[22],w,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++;if(a[28]<0.4)nVQ20++;if(z[1]-z[2]>-0.9 && z[1]-z[2]<0.9)nCLIP++;if(w[1]=="." || w[1]>0.05)MWBQ++;if(w[2]=="." || w[2]>0.05)MWMQ++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4 && nPIR>=4 && nHAP>=4 && nVQ20>=4 && nCLIP>=4 && MWBQ>=4 && MWMQ>=4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.PIR90.otherSamples.20VAF.clip.MWBQ.MWMQ.firstFilter.vcf ;done > candidates4tissuesSB2.PIR90.newFiltersMWstringent.vcf
+
+
+#For excel, HC4:candidates4tissuesSB2.PIR90.newFilters.vcf HC4+MW:candidates4tissuesSB2.PIR90.newFiltersMW.vcf
+
+cat candidatesPerTissueAllInfo.NewFilters.vcf | awk '{OFS="\t";print $2,$3-1,$3}' | sort -V | uniq | grep -v "134073018\|57976385\|30639529" > candidatesPerTissueAllInfo.NewFilters.bed
+for i in $(seq 1 11);do c=$(sed -n ${i}p candidatesPerTissueAllInfo.NewFilters.bed | awk '{print $1}');sed -n ${i}p candidatesPerTissueAllInfo.NewFilters.bed | intersectBed -a stdin -b ../varscan/singletons/allelesPerTissueAll.${c}.bed.gz -wb;done
+
+
+
+
+
+
+#NEW ROUND
+
+#Annotation with all allele support after merging bed records in ../varscan/singletons 
+for i in {1..22}; do bcftools annotate -a ../varscan/singletons/allelesPerTissueAll.${i}.merged.bed.gz -c CHROM,FROM,TO,samples -h <(echo '##INFO=<ID=samples,Number=1,Type=String,Description="Every allele support in other samples">') All_HP_P10.chr${i}.annotated.PIR90.vcf.gz | bgzip > All_HP_P10.chr${i}.annotated.PIR90.samples.vcf.gz;done
+
+#Annotation with good headers and mismatches
+../scripts/addQ20VAF_clipping_QMWUT_mm_HCP10.sh
+
+#Group vcfs from chrs in a directory
+mkdir finalAnnotated; mv *MWBQ.MWMQ.MWMM.vcf.gz finalAnnotated
+
+#Make sample ind file
+paste <(zcat All_HP_P10.chr21.annotated.vcf.gz | grep "#CHROM" | cut -f10-60 | tr '\t' '\n') <(zcat All_HP_P10.chr21.annotated.vcf.gz | grep "#CHROM" | cut -f10-60 | tr '\t' '\n' | awk '{print substr($1,1,length($1)-1)}') > sample_ind.txt
+
+#First filter by non callable, onTarget and other samples
+python3.6 ./excludeRequireTags_otherInds.py --exclude 1000G,mappability,segdups,indel,homopolymer,dbsnp --require onTarget --samplesInds sample_ind.txt --nOtherInds 1 -a samples --includesSelf YES --vcfPath finalAnnotated/ --out All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.F_callable_samples.vcf.gz
+
+#Filter 4 tissues per filter 
+python3.6 ./filterVCF4tissues.py All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.filtered_callable_nonrecurrent.vcf candidates4tissuesPythonF.vcf
+#still works the same: python3.6 ./filterVCF4tissues_old.py <(zcat All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.F_callable_samples.vcf.gz) test.candidates4.vcf
+
+
+
+
+#Make each filter an option and function
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.F_callable_samples.vcf.gz -o withArgs.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05
+
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.F_callable_samples.vcf.gz -o both_10.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05
+
+
+
+#4 tissues per filter 
+for s in 10 15 $(seq 25 5 59);do awk -v s=$s '{OFS="\t";nV=0;nAD=0;nRP=0;nXH=0;nDP=0;nFET=0;nST=0;n200=0;nBIN=0;nPIR=0;nHAP=0;nVQ20=0;nCLIP=0;e=s+4;for(i=s;i<=e;i++){split($i,a,":");split(a[2],b,",");split(a[6],c,",");split(a[7],d,",");split(a[19],q,",");split(a[16],k,",");split(a[21],z,",");if((d[1]+d[2])>0){rrr=d[1]/(d[1]+d[2])}else{rrr=0};if((d[3]+d[4])>0){arr=d[3]/(d[3]+d[4])}else{arr=0};if((c[2]+c[4])>0){sr=(c[1]+c[3])/(c[2]+c[4])}else{sr=0};if(a[1]~"0" && a[1]~"1")nV++;if(b[2]>=2)nAD++;if(rrr>0.25 && arr>0.25 && rrr<0.75 && arr<0.75)nRP++;if(a[17]==".")nXH++;if(a[3]>20 && a[3]<100)nDP++;if(a[11]>0.05)nFET++;if(sr>0.5 && sr<2)nST++;if(a[15]<4)n200++;if(a[12]<0.05)nBIN++;if(q[1]==4 && q[2]==4)nPIR++;if(k[1]<4)nHAP++;if(a[28]<0.4)nVQ20++;if(z[1]-z[2]>-0.9 && z[1]-z[2]<0.9)nCLIP++} if(nBIN==5 && nV>=4 && nAD>=4 && nXH>=4 && nDP>=4 && nFET>=4 && nST>=4 && n200>=4 && nPIR>=4 && nHAP>=4 && nVQ20>=4 && nCLIP>=4){t=s+1;u=s+2;v=s+3;print s,$1,$2,$3,$4,$5,$6,$7,$8,$9,$s,$t,$u,$v,$e}}' All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.filtered_callable_nonrecurrent.vcf ;done > candidatesNewRound.4tissues.vcf
+
+
+####Now I've added PON annotation and filter to scripts
+
+#1. Repeat the first filter so that the resulting file has the PON annotation
+python3.6 ./excludeRequireTags_otherInds.py --exclude 1000G,mappability,segdups,indel,homopolymer,dbsnp --require onTarget --samplesInds sample_ind.txt --nOtherInds 1 -a samples --includesSelf YES --vcfPath annotatedSWpv/ --out All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz
+#Gets the same number of lines so is ok
+
+#2. Apply std filter to that output and see results
+#Weird empty lines, more than in both_10.vcf.gz?
+#Rerunning with old input to find the issue
+#Same input and command as before christmas we get many more positions including empty lines! At least result is the same with the new input. 
+#So correct wathever is happening
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.F_callable_samples.vcf.gz -o both_10.rerun.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05
+
+#With ponn annotated
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponann.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05
+#Same n lines than both_10.rerun.vcf.gz so ok (no header or DV2: 151)
+
+#Now add PON
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05
+#With PON reduced from 151 to 107
+
+#Add single tissue 5 AD
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.adss5.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 5 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05
+#To 21
+
+#Since PON and adss are so powerful, try relaxing sr?
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.adss5.sr3.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 5 -vaf 0.5 -dp1 20 -dp2 100 -sr 3 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05
+#only 1 more position!
+
+#adss 4,3
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.adss4.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 4 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05
+#33
+
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.adss3.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 3 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05
+#45
+
+#So check manually. Still missing Varscan though
+
+
+#To check all filt state for a position:
+python3.6 ./getFilterResultsForPosition.py -m all -p 66849194 -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 3 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05 | s
+#To get the False filts for a position:
+python3.6 ./getFilterResultsForPosition.py -m failed -p 66849194 -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 3 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -bq 0.001 -mq 0.05 -mm 0.05 -pon 0.05
+
+
+
+#Test with no MWBQ filter
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.adss3.noBQ.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 3 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -mq 0.05 -mm 0.05 -pon 0.05
+#Only 3 more, the two in the old set and a new one SO USE THIS
+
+#Testing with ADSS 2
+python3.6 ./SOMEXmain.py -i All_HP_P10.all.allannotations.bbPON_firsFilt.vcf.gz -o both10.ponFilt.adss2.noBQ.vcf.gz -is sample_ind.txt -c BOTH -ns 4 -ad 2 -adss 2 -vaf 0.5 -dp1 20 -dp2 100 -sr 2 -pr 4 -sp 0.05 -b 0.05 -nrl 4 -hap 4 -cnv NO -pir 4,4 -vafq 0.4 -clip 0.9 -mq 0.05 -mm 0.05 -pon 0.05
+#Many with higher PON pvalues but 27 with PON 0 and not in ADSS 3
+comm -23 <(zcat both10.ponFilt.adss2.noBQ.vcf.gz | grep -v "^#\|^DV2" | awk '{x=0;for(i=11;i<=NF;i++){split($i,a,":");if(a[25]>x){x=a[25]}};if(x==0){print $0}}' | sort) <(zcat both10.ponFilt.adss3.noBQ.vcf.gz | grep -v "^#\|^DV2" | sort) > adss2PON0_notinadss3
+#Check?
+
+
+### Get VAF of validation candidates
+
+
+#### VAFs for fig1 example
+zcat both_10.vcf.gz | grep -v "^#\|^DV2" | awk '{x="";for(i=10;i<=NF;i++){split($i,a,":");split(a[2],b,",");if(b[2]==0){v=0}else{v=b[2]/a[3]};if(x==""){x=v}else{x=x"\t"v}}print x}' > both_10.noDV2.vafs.txt
+
+#For germline calls
+zcat finalAnnotated/All_HP_P10.chr1.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.vcf.gz finalAnnotated/All_HP_P10.chr2.annotated.PIR90.samples.20VAF.clip.MWBQ.MWMQ.MWMM.vcf.gz | grep -v "^#" | grep dbsnp | awk '{OFS="\t";split($11,a,":");if(a[1]~"0/0/0" && a[1]~"1/1/1" && a[3]>20)print $10,$11,$12,$13,$14}' | grep -v "\.\/\.\/\." | awk '{x="";for(i=1;i<=NF;i++){split($i,a,":");split(a[2],b,",");if(b[2]==0){v=0}else{v=b[2]/a[3]};if(x==""){x=v}else{x=x"\t"v}}print x}' > chr1.chr2.dbsnpFirstInd.vafs.txt
+
